@@ -1,0 +1,16 @@
+Exapmle: START 0x100
+;START
+ Loop: LOAD R1, R10
+      LOAD R2, R15
+      ADD R1, R2
+      JMP Loop
+      ;ERR
+One:  WORD 0x1
+Two:  WORD 0x2
+Rez:  WORD x'FE'   ; Что
+Text: BYTE c'He llo'
+NOP
+NOP
+HALT
+;Loop: END
+      END 0x106

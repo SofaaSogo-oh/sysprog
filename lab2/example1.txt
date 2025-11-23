@@ -1,0 +1,14 @@
+Example: START 0x100
+;START
+Loop: LOAD R1, One
+      LOAD R2, Two
+      ADD R1, R2
+      STORE R1, Rez
+      JMP Loop
+      ;ERR
+One:  WORD 0x1
+Two:  WORD 0x2
+;Rez:  WORD x'FE'   ; Что
+Text: BYTE c'Hello'
+;Loop: END
+      END 0x200
