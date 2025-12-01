@@ -111,6 +111,7 @@ class MainWindow(QMainWindow):
 
         self.ui.srcCode.textChanged.connect(self.on_source_code_changed)
 
+        self.ui.chooseAdrMethod.activated.connect(self.on_source_code_changed)
 
         self.init_structures()
         self.update_ui_state()
@@ -124,7 +125,6 @@ class MainWindow(QMainWindow):
 
     def print_results(self, res_table, symbol_table, errs):
         self.ui.binaryCode.clear()
-        print(res_table)
         if res_table:
             self.ui.binaryCode.addItems(res_table)
 
@@ -156,7 +156,8 @@ class MainWindow(QMainWindow):
         self.ui.firstPassErr.addItems(parse_errors)
         self.ui.firstPassErr.addItems(op_table_check_errs)
 
-        self.first_pass_gen = first_pass_simple_dict(parsed_lines, op_table, 0)
+        method = self.ui.chooseAdrMethod.currentIndex()
+        self.first_pass_gen = first_pass_simple_dict(parsed_lines, op_table, method)
 
         self.update_ui_state()
 
