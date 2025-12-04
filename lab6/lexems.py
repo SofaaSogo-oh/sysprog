@@ -42,20 +42,13 @@ class Identifier(Operand):
 
     def resolve_value(self, symbol_table=None, section=None, idr=0):
         try:
-            if symbol_table[section][self.data]['addr'] is None:
-                print(symbol_table[section][self.data])
+            if symbol_table[section][self.data]['type'] == "EXTREF":
                 return 0
+            if symbol_table[section][self.data]['addr'] is None:
+                raise KeyError()
             return symbol_table[section][self.data]['addr']
         except:
-            raise KeyError(f"Неизвестное символическое имя: {self.data}")
-        # if (
-        #     symbol_table
-        #     and section in symbol_table
-        #     and self.data in symbol_table[section]
-        # ):
-        #     return symbol_table[section][self.data]['addr']
-        # else:
-        #     raise KeyError(f"Неизвестное символическое имя: {self.data}")
+            raise KeyError(f"Неизвестное символическое имя {self.data}")
 
 
 @dataclass
@@ -70,8 +63,10 @@ class RelativeIdentifier(Operand):
 
     def resolve_value(self, symbol_table=None, section=None, idr=0):
         try:
-            if symbol_table[section][self.data]['addr'] is None:
+            if symbol_table[section][self.data]['type'] == "EXTREF":
                 raise ValueError("Внешняя ссылка")
+            if symbol_table[section][self.data]['addr'] is None:
+                raise KeyError()
             dlta = symbol_table[section][self.data]['addr'] - idr
             adlta = abs(dlta)
             return adlta if dlta > 0 else ((~adlta + 1) & 0xFFFF)

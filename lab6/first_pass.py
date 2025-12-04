@@ -135,13 +135,10 @@ def first_pass_simple_dict(
     op_table_dict: Dict[str, Tuple[int, int]],
     adr_method: int,
 ):
+    # Теперь symbol_table: section -> name -> type{adr: int, type: str}
     symbol_table = {}
+    # Все равно промежуточная табличка, стоит ли разбивать ее на секции? 
     symbol_table_blank_lines = {}
-
-    def validate_symbol_table() -> None:
-        for name in symbol_table_blank_lines:
-            errors.append(f"Есть ссылка на несуществуещее символическое имя {name}")
-
     auxiliary_table = []
     errors = []
 
@@ -425,9 +422,11 @@ def first_pass_simple_dict(
         errors.append(addr_err)
 
     # Проверка на корректность тси
-    # for i in symbol_table:
-    #     if symbol_table[i] is None:
-    #         errors.append(f"Есть ссылка на несуществуещее символическое имя {i}")
-    validate_symbol_table()
+    # Будто бы мы должны делать это после каждой секции
+    # for section in symbol_table:
+    #     for name in symbol_table[section]:
+    #         symbol = symbol_table[section][name]
+    #         if symbol["addr"] is None and symbol["type"] != "EXTREF":
+    #             errors.append(f"Есть ссылка на несуществующее символическое имя {i}")
 
     yield result()
