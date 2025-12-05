@@ -224,6 +224,7 @@ def first_pass_simple_dict(
         trecord.ops = [
             resolve_or_id(op, symbol_table, section, idr) for op in trecord.ops
         ]
+        print(trecord.ops)
         return trecord
 
     for line_num, line in enumerate(parsed_lines, 1):
@@ -406,9 +407,9 @@ def first_pass_simple_dict(
             lineErr(f"Неизвестная команда '{mnemonic}'")
 
         for i in ops:
-            if (
-                isinstance(i, Identifier) or isinstance(i, RelativeIdentifier)
-            ) and i.data not in symbol_table:
+            if (isinstance(i, Identifier) or isinstance(i, RelativeIdentifier)) and (
+                i.data not in symbol_table or symbol_table[i.data] is None
+            ):
                 symbol_table[i.data] = None
                 symbol_table_blank_lines.setdefault(i.data, []).append(
                     len(auxiliary_table) - 1
