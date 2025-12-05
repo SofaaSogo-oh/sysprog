@@ -1,17 +1,20 @@
-Prog: START
-EXTDEF D23
-EXTDEF D4
-EXTREF D2
-EXTREF D546
-D4: RESB 10
-D23: RESB 10
-JMP @D2
-STORE @D546
-RESB 10
-A2: CSECT
-EXTDEF D42
-EXTREF D4
-D42: STORE @D4
-JMP @D42
-LOAD 200
-END
+Exapmle: START 
+;START
+ Loop: LOAD R1, R10
+      LOAD R2, R15
+ 
+      ADD R1, R2
+      JMP @Rez
+      JMP @Rez
+      ;ERR
+One:  WORD 0x1
+Two:  WORD 0x2
+JMP @Rez
+Rez:  WORD x'FE'   ; Что
+JMP @Rez
+Text: BYTE c'He llo'
+NOP
+NOP
+HALT
+;Loop: END
+      END 
