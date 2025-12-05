@@ -186,6 +186,7 @@ def first_pass_simple_dict(
                     lineErr(addr_err)
                 symbol_table[line.label] = location_counter
                 if line.label in symbol_table_blank_lines:
+                    print(symbol_table_blank_lines)
                     for inx in symbol_table_blank_lines[line.label]:
                         auxiliary_table[inx] += f"{location_counter:06x}"
                     symbol_table_blank_lines.pop(line.label)
@@ -296,7 +297,7 @@ def first_pass_simple_dict(
             lineErr(f"Неизвестная команда '{mnemonic}'")
         
         for i in ops:
-            if isinstance(i, Identifier) and i.data not in symbol_table:
+            if isinstance(i, Identifier) and (i.data not in symbol_table or symbol_table[i.data] is None):
                 symbol_table[i.data] = None
                 symbol_table_blank_lines.setdefault(i.data, []).append(len(auxiliary_table) - 1)
         yield result()

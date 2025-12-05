@@ -42,6 +42,8 @@ class Identifier(Operand):
 
     def resolve_value(self, symbol_table=None, section=None, idr=0):
         try:
+            if symbol_table[self.data] is None:
+                raise KeyError()
             return symbol_table[self.data]
         except:
             raise KeyError(f"Неизвестное символическое имя: {self.data}")

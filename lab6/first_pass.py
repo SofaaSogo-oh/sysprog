@@ -136,9 +136,18 @@ def first_pass_simple_dict(
     adr_method: int,
 ):
     # Теперь symbol_table: section -> name -> type{adr: int, type: str}
-    symbol_table = {}
+
+    current_section = ""
+    section_existence = set()
+
+    section_symbols: Dict[str, Dict[str, Any]] = {}
     # Все равно промежуточная табличка, стоит ли разбивать ее на секции? 
     symbol_table_blank_lines = {}
+
+    def validate_symbol_table() -> None:
+        for name in symbol_table_blank_lines[current_section]:
+            errors.append(f"Есть ссылка на несуществующее символическое имя {name}")
+
     auxiliary_table = []
     errors = []
 
@@ -146,7 +155,7 @@ def first_pass_simple_dict(
         # result_table = [process_intercode(code, symbol_table, op_table_dict) for code in auxiliary_table]
         result_table = [str(line) for line in auxiliary_table]
         return (
-            (None, symbol_table, errors) if errors else (result_table, symbol_table, [])
+            (None, section_symbols, errors) if errors else (result_table, section_symbols, [])
         )
 
     location_counter = 0
@@ -219,7 +228,7 @@ def first_pass_simple_dict(
     def resolve_t_record(trecord: TCode, section=""):
         idr = trecord.adr + trecord.size
         trecord.ops = [
-            resolve_or_id(op, symbol_table, section, idr) for op in trecord.ops
+            resolve_or_id(op, section_symbols, section, idr) for op in trecord.ops
         ]
         return trecord
 
@@ -250,24 +259,43 @@ def first_pass_simple_dict(
                 lineErr("Не нулевой адрес загрузки в относительном формате")
             if not line.label:
                 lineErr("Отстуствует метка у директивы START")
+            current_section = line.label
+            section_existence.add(current_section)
             # auxiliary_table.append(f"H {line.label} {location_counter:06x} ")
+            start_inx = len(auxiliary_table)
             auxiliary_table.append(HCode(line.label, location_counter, None))
+            section_symbols[current_section] = dict()
             continue
 
         if not start_found:
             lineErr("Программа не начинается с директивы START")
             # continue
+        
+        if mnemonic == "CSECT":
+            if not line.label:
+                lineErr("Отсутствует метка у директивы CSECT")
+            location_counter = 0
+            current_section = line.label
+            if current_section in section_existence:
+                lineErr(f'Повторная секция "{current_section}" не допустима')
+            section_existence.add(current_section)
+            prog_size = location_counter - start_addr
+            auxiliary_table[start_inx].size = prog_size
+            start_inx = len(auxiliary_table)
+            auxiliary_table.append(HCode(current_section, location_counter, None))
+            section_symbols[current_section] = dict()
+            continue
 
         # Обработка меток
         if line.label:
-            if line.label in symbol_table and symbol_table[line.label]:
+            if line.label in section_symbols and section_symbols[line.label]:
                 lineErr(f"Дублирующаяся метка '{line.label}'")
             else:
                 if addr_err := validate_address_range(
                     location_counter, f" для метки '{line.label}'"
                 ):
                     lineErr(addr_err)
-                symbol_table[line.label] = location_counter
+                section_symbols[line.label] = location_counter
                 if line.label in symbol_table_blank_lines:
                     for inx in symbol_table_blank_lines[line.label]:
                         trecord: TCode = auxiliary_table[inx]
@@ -384,7 +412,7 @@ def first_pass_simple_dict(
 
             addrtype = address_type(ops)
             op_addr_code = (opcode << 2) | addrtype
-            disp = display_value(ops, symbol_table, "", op_size, new_address)
+            disp = display_value(ops, section_symbols, "", op_size, new_address)
             # auxiliary_table.append(f"T {location_counter:06X} {op_size} {op_addr_code:02X}{disp}")
             trecord = resolve_t_record(
                 TCode(location_counter, op_size, op_addr_code, ops)
@@ -405,8 +433,8 @@ def first_pass_simple_dict(
         for i in ops:
             if (
                 isinstance(i, Identifier) or isinstance(i, RelativeIdentifier)
-            ) and i.data not in symbol_table:
-                symbol_table[i.data] = None
+            ) and i.data not in section_symbols:
+                section_symbols[i.data] = None
                 symbol_table_blank_lines.setdefault(i.data, []).append(
                     len(auxiliary_table) - 1
                 )
