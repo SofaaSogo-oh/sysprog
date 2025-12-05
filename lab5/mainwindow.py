@@ -113,6 +113,9 @@ class MainWindow(QMainWindow):
 
         self.ui.chooseAdrMethod.activated.connect(self.on_source_code_changed)
 
+        self.ui.codeTable.cellChanged.connect(self.on_source_code_changed)
+        self.ui.codeTable.cellClicked.connect(self.on_source_code_changed)
+
         self.init_structures()
         self.update_ui_state()
 
@@ -142,8 +145,11 @@ class MainWindow(QMainWindow):
             self.print_results(*next(self.first_pass_gen))
         except StopIteration:
             pass
+        except TypeError:
+            pass
     
     def reset_compilation_state(self):
+        self.first_pass_gen = None
         self.ui.binaryCode.clear()
         self.ui.firstPassErr.clear()
         self.ui.symbolicNameTable.clear()
@@ -155,6 +161,9 @@ class MainWindow(QMainWindow):
 
         self.ui.firstPassErr.addItems(parse_errors)
         self.ui.firstPassErr.addItems(op_table_check_errs)
+        if op_table_check_errs:
+            self.update_ui_state()
+            return
 
         method = self.ui.chooseAdrMethod.currentIndex()
         self.first_pass_gen = first_pass_simple_dict(parsed_lines, op_table, method)
@@ -162,7 +171,12 @@ class MainWindow(QMainWindow):
         self.update_ui_state()
 
     def first_pass(self):
-        self.print_results(*deque(self.first_pass_gen, maxlen=1)[-1])
+        try:
+            self.print_results(*deque(self.first_pass_gen, maxlen=1)[-1])
+        except IndexError:
+            pass
+        except TypeError:
+            pass
 
     
     def update_ui_state(self):
