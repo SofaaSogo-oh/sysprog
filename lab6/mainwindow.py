@@ -80,7 +80,6 @@ def fill_symbol_table_sorted_by_address(table_widget: QTableWidget, symbol_table
     table_widget.setColumnCount(4)
     table_widget.setHorizontalHeaderLabels(["Метка", "Адрес", "Секция", "Тип"])
 
-    print(symbol_table)
     table_widget.setRowCount(sum(len(symbol_table[i]) for i in symbol_table))
     row = 0
     for section_name in symbol_table:

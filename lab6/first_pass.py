@@ -141,7 +141,7 @@ def first_pass_simple_dict(
     section_existence = set()
 
     section_symbols: Dict[str, Dict[str, Any]] = {}
-    # Все равно промежуточная табличка, стоит ли разбивать ее на секции? 
+    # Все равно промежуточная табличка, стоит ли разбивать ее на секции?
     symbol_table_blank_lines = {}
 
     def validate_symbol_table() -> None:
@@ -155,7 +155,9 @@ def first_pass_simple_dict(
         # result_table = [process_intercode(code, symbol_table, op_table_dict) for code in auxiliary_table]
         result_table = [str(line) for line in auxiliary_table]
         return (
-            (None, section_symbols, errors) if errors else (result_table, section_symbols, [])
+            (None, section_symbols, errors)
+            if errors
+            else (result_table, section_symbols, [])
         )
 
     location_counter = 0
@@ -163,7 +165,15 @@ def first_pass_simple_dict(
     start_addr = 0
     start_found = False
     end_found = False
+
     modification_table: List[int] = []
+
+    def print_modification_table():
+        nonlocal modification_table
+        for location in modification_table:
+            auxiliary_table.append(MCode(location))
+        modification_table = []
+
     start_inx = len(auxiliary_table)
 
     def validate_address_range(addr: int, context: str = "") -> str | None:
@@ -270,11 +280,10 @@ def first_pass_simple_dict(
         if not start_found:
             lineErr("Программа не начинается с директивы START")
             # continue
-        
+
         if mnemonic == "CSECT":
             if not line.label:
                 lineErr("Отсутствует метка у директивы CSECT")
-            location_counter = 0
             current_section = line.label
             if current_section in section_existence:
                 lineErr(f'Повторная секция "{current_section}" не допустима')
@@ -282,24 +291,34 @@ def first_pass_simple_dict(
             prog_size = location_counter - start_addr
             auxiliary_table[start_inx].size = prog_size
             start_inx = len(auxiliary_table)
+            location_counter = 0
+            print_modification_table()
             auxiliary_table.append(HCode(current_section, location_counter, None))
             section_symbols[current_section] = dict()
             continue
 
         # Обработка меток
         if line.label:
-            if line.label in section_symbols[current_section] and section_symbols[current_section][line.label]:
+            if (
+                line.label in section_symbols[current_section]
+                and section_symbols[current_section][line.label]["addr"] is not None
+            ):
                 lineErr(f"Дублирующаяся метка '{line.label}'")
             else:
                 if addr_err := validate_address_range(
                     location_counter, f" для метки '{line.label}'"
                 ):
                     lineErr(addr_err)
-                section_symbols[current_section][line.label] = location_counter
+                if line.label not in section_symbols[current_section]:
+                    section_symbols[current_section][line.label] = {
+                        "type": None,
+                        "addr": None
+                    }
+                section_symbols[current_section][line.label]["addr"] = location_counter
                 if line.label in symbol_table_blank_lines:
                     for inx in symbol_table_blank_lines[line.label]:
                         trecord: TCode = auxiliary_table[inx]
-                        trecord = resolve_t_record(trecord)
+                        trecord = resolve_t_record(trecord, current_section)
                     symbol_table_blank_lines.pop(line.label)
 
         if mnemonic == "END":
@@ -316,9 +335,10 @@ def first_pass_simple_dict(
                 lineErr("Некорректный адрес точки входа")
 
             # Формирование модификаторов
-            for location in modification_table:
-                # auxiliary_table.append(f"M {location:06X}")
-                auxiliary_table.append(MCode(location))
+            print_modification_table()
+            # for location in modification_table:
+            #     # auxiliary_table.append(f"M {location:06X}")
+            #     auxiliary_table.append(MCode(location))
 
             # auxiliary_table.append(f"E {addr:06x}")
             auxiliary_table.append(ECode(addr))
@@ -394,12 +414,38 @@ def first_pass_simple_dict(
                 set_location_counter(new_address)
             else:
                 lineErr("Некорректный формат директивы RESB")
-            
+
         elif mnemonic == "EXTDEF":
-            pass
+            if not match_op_pattern(ops, Identifier) or line.label:
+                lineErr("Некорректный формат EXTDEF")
+            else:
+                for op in ops:
+                    if op.data in section_symbols[current_section]:
+                        record = section_symbols[current_section][op.data]
+                        if record["type"] is None:
+                            record["type"] = "EXTDEF"
+                        else:
+                            lineErr("Переопределение на EXTDEF")
+                    else:
+                        section_symbols[current_section][op.data] = {
+                            "type": "EXTDEF",
+                            "addr": None
+                        }
 
         elif mnemonic == "EXTREF":
-            pass
+            if not match_op_pattern(ops, Identifier) or line.label:
+                lineErr("Некорректный формат EXTREF")
+            else:
+                for op in ops:
+                    if (
+                        op.data in section_symbols[current_section]
+                        and section_symbols[current_section][op.data]["type"] is not None
+                    ):
+                        lineErr(f"Некорректный extref")
+                    section_symbols[current_section][op.data] = {
+                        "addr": None,
+                        "type": "EXTREF",
+                    }
 
         elif mnemonic in op_table_dict:
             opcode, op_size = op_table_dict[mnemonic]
@@ -421,7 +467,8 @@ def first_pass_simple_dict(
             disp = display_value(ops, section_symbols, "", op_size, new_address)
             # auxiliary_table.append(f"T {location_counter:06X} {op_size} {op_addr_code:02X}{disp}")
             trecord = resolve_t_record(
-                TCode(location_counter, op_size, op_addr_code, ops)
+                TCode(location_counter, op_size, op_addr_code, ops),
+                current_section
             )
             auxiliary_table.append(trecord)
 
@@ -437,7 +484,10 @@ def first_pass_simple_dict(
                 if (
                     isinstance(i, Identifier) or isinstance(i, RelativeIdentifier)
                 ) and i.data not in section_symbols:
-                    section_symbols[current_section][i.data] = None
+                    section_symbols[current_section][i.data] = {
+                        "addr": None,
+                        "type": None
+                    }
                     symbol_table_blank_lines.setdefault(i.data, []).append(
                         len(auxiliary_table) - 1
                     )
