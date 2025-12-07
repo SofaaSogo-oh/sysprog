@@ -73,27 +73,32 @@ def table_to_dict(table_widget) -> Tuple[List[str], Dict[str, Tuple[int, int]]]:
 
     return errs, result_dict
 
-def fill_symbol_table_sorted_by_address(table_widget, symbol_table):
+def fill_symbol_table_sorted_by_address(table_widget: QTableWidget, symbol_table):
     table_widget.clear()
     table_widget.setRowCount(0)
-    
-    table_widget.setColumnCount(2)
-    table_widget.setHorizontalHeaderLabels(["Метка", "Адрес"])
-    
-    symbols_list = list(symbol_table.items())
-    table_widget.setRowCount(len(symbols_list))
-    
-    # Сортируем по адресу
-    symbols_list.sort(key=lambda x: x[1] if x[1] else -1)
-    
-    for row, (label, address) in enumerate(symbols_list):
-        label_item = QTableWidgetItem(label)
-        # address_item = QTableWidgetItem(f"0x{address:06X}" if address else "None")
-        address_item = QTableWidgetItem("None" if address is None else f"0x{address:06X}")
-        
-        table_widget.setItem(row, 0, label_item)
-        table_widget.setItem(row, 1, address_item)
-    
+
+    table_widget.setColumnCount(4)
+    table_widget.setHorizontalHeaderLabels(["Метка", "Адрес", "Секция", "Тип"])
+
+    print(symbol_table)
+    table_widget.setRowCount(sum(len(symbol_table[i]) for i in symbol_table))
+    row = 0
+    for section_name in symbol_table:
+        section = list(symbol_table[section_name].items())
+        section.sort(key=lambda x: x[1]["addr"] if x[1]["addr"] is not None else -1)
+        for label, record in section:
+            label_item = QTableWidgetItem(label)
+            address_item = QTableWidgetItem(
+                f"0x{record["addr"]:06x}" if record["addr"] is not None else "None"
+            )
+            section_item = QTableWidgetItem(section_name)
+            type_item = QTableWidgetItem(record["type"])
+            table_widget.setItem(row, 0, label_item)
+            table_widget.setItem(row, 1, address_item)
+            table_widget.setItem(row, 2, section_item)
+            table_widget.setItem(row, 3, type_item)
+            row += 1
+
     table_widget.resizeColumnsToContents()
     table_widget.setAlternatingRowColors(True)
 
@@ -112,6 +117,9 @@ class MainWindow(QMainWindow):
         self.ui.srcCode.textChanged.connect(self.on_source_code_changed)
 
         self.ui.chooseAdrMethod.activated.connect(self.on_source_code_changed)
+
+        self.ui.codeTable.cellChanged.connect(self.on_source_code_changed)
+        self.ui.codeTable.cellClicked.connect(self.on_source_code_changed)
 
         self.init_structures()
         self.update_ui_state()
@@ -142,8 +150,11 @@ class MainWindow(QMainWindow):
             self.print_results(*next(self.first_pass_gen))
         except StopIteration:
             pass
+        except TypeError as err:
+            raise err
     
     def reset_compilation_state(self):
+        self.first_pass_gen = None
         self.ui.binaryCode.clear()
         self.ui.firstPassErr.clear()
         self.ui.symbolicNameTable.clear()
@@ -155,6 +166,9 @@ class MainWindow(QMainWindow):
 
         self.ui.firstPassErr.addItems(parse_errors)
         self.ui.firstPassErr.addItems(op_table_check_errs)
+        if op_table_check_errs:
+            self.update_ui_state()
+            return
 
         method = self.ui.chooseAdrMethod.currentIndex()
         self.first_pass_gen = first_pass_simple_dict(parsed_lines, op_table, method)
@@ -162,7 +176,12 @@ class MainWindow(QMainWindow):
         self.update_ui_state()
 
     def first_pass(self):
-        self.print_results(*deque(self.first_pass_gen, maxlen=1)[-1])
+        try:
+            self.print_results(*deque(self.first_pass_gen, maxlen=1)[-1])
+        except IndexError:
+            pass
+        except TypeError:
+            pass
 
     
     def update_ui_state(self):
@@ -174,3 +193,4 @@ if __name__ == "__main__":
     widget = MainWindow()
     widget.show()
     sys.exit(app.exec())
+

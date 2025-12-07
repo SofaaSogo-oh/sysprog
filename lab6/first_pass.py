@@ -288,14 +288,14 @@ def first_pass_simple_dict(
 
         # Обработка меток
         if line.label:
-            if line.label in section_symbols and section_symbols[line.label]:
+            if line.label in section_symbols[current_section] and section_symbols[current_section][line.label]:
                 lineErr(f"Дублирующаяся метка '{line.label}'")
             else:
                 if addr_err := validate_address_range(
                     location_counter, f" для метки '{line.label}'"
                 ):
                     lineErr(addr_err)
-                section_symbols[line.label] = location_counter
+                section_symbols[current_section][line.label] = location_counter
                 if line.label in symbol_table_blank_lines:
                     for inx in symbol_table_blank_lines[line.label]:
                         trecord: TCode = auxiliary_table[inx]
@@ -394,6 +394,12 @@ def first_pass_simple_dict(
                 set_location_counter(new_address)
             else:
                 lineErr("Некорректный формат директивы RESB")
+            
+        elif mnemonic == "EXTDEF":
+            pass
+
+        elif mnemonic == "EXTREF":
+            pass
 
         elif mnemonic in op_table_dict:
             opcode, op_size = op_table_dict[mnemonic]
@@ -427,17 +433,18 @@ def first_pass_simple_dict(
             if err := check_adr_method(ops):
                 lineErr(err)
 
+            for i in ops:
+                if (
+                    isinstance(i, Identifier) or isinstance(i, RelativeIdentifier)
+                ) and i.data not in section_symbols:
+                    section_symbols[current_section][i.data] = None
+                    symbol_table_blank_lines.setdefault(i.data, []).append(
+                        len(auxiliary_table) - 1
+                    )
+
         else:
             lineErr(f"Неизвестная команда '{mnemonic}'")
 
-        for i in ops:
-            if (
-                isinstance(i, Identifier) or isinstance(i, RelativeIdentifier)
-            ) and i.data not in section_symbols:
-                section_symbols[i.data] = None
-                symbol_table_blank_lines.setdefault(i.data, []).append(
-                    len(auxiliary_table) - 1
-                )
         yield result()
 
     # Финальные проверки
