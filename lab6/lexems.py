@@ -1,7 +1,6 @@
 from dataclasses import dataclass
 from typing import *
 
-
 class Operand:
     def size(self):
         """Размер в байтах при использовании в данных (BYTE/WORD)"""

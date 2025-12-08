@@ -256,6 +256,8 @@ def first_pass_simple_dict(
     def resolve_or_id(op: Operand, symbol_table, section, idr):
         try:
             return Number(op.resolve_value(symbol_table, section, idr))
+        except ValueError as err:
+            raise err
         except:
             return op
 
