@@ -125,8 +125,11 @@ class ECode(InterCode):
 @dataclass
 class MCode(InterCode):
     adr: int
+    name: str | None
 
     def __str__(self):
+        if self.name:
+            return f"M {self.adr:06X} {self.name}"
         return f"M {self.adr:06X}"
 
 
@@ -134,21 +137,10 @@ class DCode(TCode):
     def __init__(self, name: Identifier):
         super().__init__(adr=0, size=4, opcode=None, ops=[name])
         self.name = name
-        # self.name = name
-        # self.ops = [name]
-        # self.size = 4
-        # self.adr = 0
 
     def __str__(self):
         vals = display_value(self.ops, None, self.adr, self.size, self.adr + self.size)
         return f"D {self.name} {vals}"
-
-    # def __str__(self):
-    #     vals = display_value([self.name], None, None, 4, None)
-    #     # if self.adr is None:
-    #     #     return f"D {self.name}"
-    #     return f"D {self.name} {vals}"
-
 
 @dataclass
 class RCode(InterCode):
@@ -194,12 +186,16 @@ def first_pass_simple_dict(
     start_found = False
     end_found = False
 
-    modification_table: List[int] = []
+    modification_table: List[Tuple[int, str]] = []
 
     def print_modification_table():
         nonlocal modification_table
-        for location in modification_table:
-            auxiliary_table.append(MCode(location))
+        for location, name in modification_table:
+            symbol = section_symbols[current_section][name]
+            if symbol["type"] == "EXTREF":
+                auxiliary_table.append(MCode(location, name))
+            else:
+                auxiliary_table.append(MCode(location, None))
         modification_table = []
 
     start_inx = len(auxiliary_table)
@@ -312,6 +308,7 @@ def first_pass_simple_dict(
         if mnemonic == "CSECT":
             if not line.label:
                 lineErr("Отсутствует метка у директивы CSECT")
+            print_modification_table()
             current_section = line.label
             if current_section in section_existence:
                 lineErr(f'Повторная секция "{current_section}" не допустима')
@@ -320,7 +317,6 @@ def first_pass_simple_dict(
             auxiliary_table[start_inx].size = prog_size
             start_inx = len(auxiliary_table)
             location_counter = 0
-            print_modification_table()
             auxiliary_table.append(HCode(current_section, location_counter, None))
             section_symbols[current_section] = dict()
             continue
@@ -506,7 +502,8 @@ def first_pass_simple_dict(
             auxiliary_table.append(trecord)
 
             if address_type(ops) == AddressType.DIRECT:
-                modification_table.append(location_counter)
+                for op in ops:
+                    modification_table.append((location_counter, str(op)))
 
             set_location_counter(new_address)
 
@@ -516,7 +513,7 @@ def first_pass_simple_dict(
             for i in ops:
                 if (
                     isinstance(i, Identifier) or isinstance(i, RelativeIdentifier)
-                ) and i.data not in section_symbols:
+                ) and i.data not in section_symbols[current_section]:
                     section_symbols[current_section][i.data] = {
                         "addr": None,
                         "type": None,
