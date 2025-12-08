@@ -311,17 +311,30 @@ def first_pass_simple_dict(
             # continue
 
         if mnemonic == "CSECT":
+            if not (match_op_pattern(ops) or match_op_pattern(ops, Number)):
+                lineErr("Некорректный формат директивы CSECT")
             if not line.label:
                 lineErr("Отсутствует метка у директивы CSECT")
             print_modification_table()
+
+            prog_size = location_counter - start_addr
+            auxiliary_table[start_inx].size = prog_size
+            addr = start_addr
+            if match_op_pattern(ops, Number):
+                addr = ops[0].resolve_value()
+            if addr not in address_space:
+                lineErr("Некорректный адрес точки входа")
+            auxiliary_table.append(ECode(addr))
+
             current_section = line.label
             if current_section in section_existence:
                 lineErr(f'Повторная секция "{current_section}" не допустима')
             section_existence.add(current_section)
-            prog_size = location_counter - start_addr
-            auxiliary_table[start_inx].size = prog_size
+
             start_inx = len(auxiliary_table)
             location_counter = 0
+            start_addr = location_counter
+            address_space = [start_addr]
             auxiliary_table.append(HCode(current_section, location_counter, None))
             section_symbols[current_section] = dict()
             continue
