@@ -130,6 +130,34 @@ class MCode(InterCode):
         return f"M {self.adr:06X}"
 
 
+class DCode(TCode):
+    def __init__(self, name: Identifier):
+        super().__init__(adr=0, size=4, opcode=None, ops=[name])
+        self.name = name
+        # self.name = name
+        # self.ops = [name]
+        # self.size = 4
+        # self.adr = 0
+
+    def __str__(self):
+        vals = display_value(self.ops, None, self.adr, self.size, self.adr + self.size)
+        return f"D {self.name} {vals}"
+
+    # def __str__(self):
+    #     vals = display_value([self.name], None, None, 4, None)
+    #     # if self.adr is None:
+    #     #     return f"D {self.name}"
+    #     return f"D {self.name} {vals}"
+
+
+@dataclass
+class RCode(InterCode):
+    name: str
+
+    def __str__(self):
+        return f"R {self.name}"
+
+
 def first_pass_simple_dict(
     parsed_lines: List[ParsedLine],
     op_table_dict: Dict[str, Tuple[int, int]],
@@ -312,7 +340,7 @@ def first_pass_simple_dict(
                 if line.label not in section_symbols[current_section]:
                     section_symbols[current_section][line.label] = {
                         "type": None,
-                        "addr": None
+                        "addr": None,
                     }
                 section_symbols[current_section][line.label]["addr"] = location_counter
                 if line.label in symbol_table_blank_lines:
@@ -429,8 +457,12 @@ def first_pass_simple_dict(
                     else:
                         section_symbols[current_section][op.data] = {
                             "type": "EXTDEF",
-                            "addr": None
+                            "addr": None,
                         }
+                    auxiliary_table.append(DCode(op))
+                    symbol_table_blank_lines.setdefault(op.data, []).append(
+                        len(auxiliary_table) - 1
+                    )
 
         elif mnemonic == "EXTREF":
             if not match_op_pattern(ops, Identifier) or line.label:
@@ -439,13 +471,15 @@ def first_pass_simple_dict(
                 for op in ops:
                     if (
                         op.data in section_symbols[current_section]
-                        and section_symbols[current_section][op.data]["type"] is not None
+                        and section_symbols[current_section][op.data]["type"]
+                        is not None
                     ):
                         lineErr(f"Некорректный extref")
                     section_symbols[current_section][op.data] = {
                         "addr": None,
                         "type": "EXTREF",
                     }
+                    auxiliary_table.append(RCode(op.data))
 
         elif mnemonic in op_table_dict:
             opcode, op_size = op_table_dict[mnemonic]
@@ -467,8 +501,7 @@ def first_pass_simple_dict(
             disp = display_value(ops, section_symbols, "", op_size, new_address)
             # auxiliary_table.append(f"T {location_counter:06X} {op_size} {op_addr_code:02X}{disp}")
             trecord = resolve_t_record(
-                TCode(location_counter, op_size, op_addr_code, ops),
-                current_section
+                TCode(location_counter, op_size, op_addr_code, ops), current_section
             )
             auxiliary_table.append(trecord)
 
@@ -486,7 +519,7 @@ def first_pass_simple_dict(
                 ) and i.data not in section_symbols:
                     section_symbols[current_section][i.data] = {
                         "addr": None,
-                        "type": None
+                        "type": None,
                     }
                     symbol_table_blank_lines.setdefault(i.data, []).append(
                         len(auxiliary_table) - 1
