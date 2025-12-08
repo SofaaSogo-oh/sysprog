@@ -166,7 +166,7 @@ def first_pass_simple_dict(
     symbol_table_blank_lines = {}
 
     def validate_symbol_table() -> None:
-        for name in symbol_table_blank_lines[current_section]:
+        for name in symbol_table_blank_lines:
             errors.append(f"Есть ссылка на несуществующее символическое имя {name}")
 
     auxiliary_table = []
@@ -316,6 +316,7 @@ def first_pass_simple_dict(
             if not line.label:
                 lineErr("Отсутствует метка у директивы CSECT")
             print_modification_table()
+            validate_symbol_table()
 
             prog_size = location_counter - start_addr
             auxiliary_table[start_inx].size = prog_size
@@ -381,6 +382,7 @@ def first_pass_simple_dict(
 
             # Формирование модификаторов
             print_modification_table()
+            validate_symbol_table()
             # for location in modification_table:
             #     # auxiliary_table.append(f"M {location:06X}")
             #     auxiliary_table.append(MCode(location))
