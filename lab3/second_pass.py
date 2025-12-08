@@ -116,7 +116,7 @@ def second_pass(
                     load_address = ops[0].resolve_value()
                 if load_address not in [loc for _, (loc, _, _) in section]:
                     lineErr("Некорректный адрес точки входа")
-                machine_code.append(f"E {0:06X}")
+                machine_code.append(f"E {load_address:06X}")
             if mnemonic == "START":
                 machine_code.append(f"H {line.label} {location:06X} {prog_size:X}")
             if mnemonic in ["RESW", "RESB"]:
