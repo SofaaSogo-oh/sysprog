@@ -142,6 +142,7 @@ class DCode(TCode):
         vals = display_value(self.ops, None, self.adr, self.size, self.adr + self.size)
         return f"D {self.name} {vals}"
 
+
 @dataclass
 class RCode(InterCode):
     name: str
@@ -274,7 +275,9 @@ def first_pass_simple_dict(
             break
         mnemonic = line.command.mnemonic
         ops = line.command.operands
-        lineErr = lambda x: errors.append(f"Строка {line_num}: {x}")
+        lineErr = lambda msg: errors.append(
+            f"[{current_section}:{location_counter:06X}]: {msg}"
+        )
 
         if mnemonic == "START":
             if start_found:
@@ -344,7 +347,10 @@ def first_pass_simple_dict(
                 if line.label in symbol_table_blank_lines:
                     for inx in symbol_table_blank_lines[line.label]:
                         trecord: TCode = auxiliary_table[inx]
-                        trecord = resolve_t_record(trecord, current_section)
+                        try:
+                            trecord = resolve_t_record(trecord, current_section)
+                        except Exception as err:
+                            lineErr(err)
                     symbol_table_blank_lines.pop(line.label)
 
         if mnemonic == "END":
@@ -498,9 +504,11 @@ def first_pass_simple_dict(
             op_addr_code = (opcode << 2) | addrtype
             disp = display_value(ops, section_symbols, "", op_size, new_address)
             # auxiliary_table.append(f"T {location_counter:06X} {op_size} {op_addr_code:02X}{disp}")
-            trecord = resolve_t_record(
-                TCode(location_counter, op_size, op_addr_code, ops), current_section
-            )
+            trecord = TCode(location_counter, op_size, op_addr_code, ops)
+            try:
+                trecord = resolve_t_record(trecord, current_section)
+            except Exception as err:
+                lineErr(err)
             auxiliary_table.append(trecord)
 
             if address_type(ops) == AddressType.DIRECT:
